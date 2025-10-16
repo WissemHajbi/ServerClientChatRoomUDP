@@ -5,6 +5,11 @@ import java.net.*;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.nio.file.Files;
+import java.util.Base64;
+import javax.swing.text.*;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
 
 public class Client {
     public static void main(String[] args) {
@@ -29,9 +34,9 @@ public class Client {
                 frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
                 frame.setSize(600, 400);
 
-                JTextArea textArea = new JTextArea();
-                textArea.setEditable(false);
-                JScrollPane scrollPane = new JScrollPane(textArea);
+                JTextPane textPane = new JTextPane();
+                textPane.setEditable(false);
+                JScrollPane scrollPane = new JScrollPane(textPane);
 
                 DefaultListModel<String> model = new DefaultListModel<>();
                 JList<String> list = new JList<>(model);
@@ -43,13 +48,15 @@ public class Client {
 
                 JTextField textField = new JTextField();
                 JButton sendButton = new JButton("Send");
+                JButton sendImageButton = new JButton("Send Image");
 
                 JPanel panel = new JPanel(new BorderLayout());
                 panel.add(splitPane, BorderLayout.CENTER);
 
-                JPanel bottomPanel = new JPanel(new BorderLayout());
-                bottomPanel.add(textField, BorderLayout.CENTER);
-                bottomPanel.add(sendButton, BorderLayout.EAST);
+                JPanel bottomPanel = new JPanel(new FlowLayout());
+                bottomPanel.add(textField);
+                bottomPanel.add(sendButton);
+                bottomPanel.add(sendImageButton);
 
                 panel.add(bottomPanel, BorderLayout.SOUTH);
                 frame.add(panel);
@@ -59,7 +66,7 @@ public class Client {
                 Thread receiver = new Thread(() -> {
                     try {
                         while (!Thread.currentThread().isInterrupted()) {
-                            byte[] receiveData = new byte[1024];
+                            byte[] receiveData = new byte[65535];
                             DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
                             socket.receive(receivePacket);
                             String response = new String(receivePacket.getData(), 0, receivePacket.getLength());
@@ -77,8 +84,52 @@ public class Client {
                                         if (!n.isEmpty()) model.addElement(n);
                                     }
                                 });
+                            } else if (response.startsWith("image:")) {
+                                String[] parts = response.split(":", 3);
+                                if (parts.length == 3) {
+                                    String sender = parts[1];
+                                    String base64 = parts[2];
+                                    byte[] bytes = Base64.getDecoder().decode(base64);
+                                    try {
+                                        BufferedImage image = ImageIO.read(new ByteArrayInputStream(bytes));
+                                        if (image != null) {
+                                            ImageIcon icon = new ImageIcon(image);
+                                            SwingUtilities.invokeLater(() -> {
+                                                try {
+                                                    textPane.getDocument().insertString(textPane.getDocument().getLength(), sender + " sent an image:\n", null);
+                                                    textPane.insertIcon(icon);
+                                                    textPane.getDocument().insertString(textPane.getDocument().getLength(), "\n", null);
+                                                } catch (BadLocationException e) {
+                                                    e.printStackTrace();
+                                                }
+                                            });
+                                        } else {
+                                            SwingUtilities.invokeLater(() -> {
+                                                try {
+                                                    textPane.getDocument().insertString(textPane.getDocument().getLength(), sender + " sent an invalid image.\n", null);
+                                                } catch (BadLocationException e) {
+                                                    e.printStackTrace();
+                                                }
+                                            });
+                                        }
+                                    } catch (IOException ioEx) {
+                                        SwingUtilities.invokeLater(() -> {
+                                            try {
+                                                textPane.getDocument().insertString(textPane.getDocument().getLength(), sender + " sent an invalid image.\n", null);
+                                            } catch (BadLocationException e) {
+                                                e.printStackTrace();
+                                            }
+                                        });
+                                    }
+                                }
                             } else {
-                                SwingUtilities.invokeLater(() -> textArea.append(response + "\n"));
+                                SwingUtilities.invokeLater(() -> {
+                                    try {
+                                        textPane.getDocument().insertString(textPane.getDocument().getLength(), response + "\n", null);
+                                    } catch (BadLocationException e) {
+                                        e.printStackTrace();
+                                    }
+                                });
                             }
                         }
                     } catch (IOException e) {
@@ -108,6 +159,27 @@ public class Client {
 
                 sendButton.addActionListener(sendAction);
                 textField.addActionListener(sendAction); // Enter key sends
+
+                // Send image action
+                sendImageButton.addActionListener(e -> {
+                    JFileChooser chooser = new JFileChooser();
+                    if (chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
+                        try {
+                            byte[] bytes = Files.readAllBytes(chooser.getSelectedFile().toPath());
+                            String encoded = Base64.getEncoder().encodeToString(bytes);
+                            String message = "image:" + encoded;
+                            byte[] sendData = message.getBytes();
+                            DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);
+                            socket.send(sendPacket);
+                        } catch (IOException ex) {
+                            if (ex instanceof SocketException && ex.getMessage().contains("larger than")) {
+                                JOptionPane.showMessageDialog(frame, "Image is too large to send. Please choose a smaller image (under ~50KB).");
+                            } else {
+                                ex.printStackTrace();
+                            }
+                        }
+                    }
+                });
 
                 // On close, send logout
                 frame.addWindowListener(new WindowAdapter() {

@@ -12,7 +12,7 @@ public class Server {
         try (DatagramSocket socket = new DatagramSocket(1234)) {
             System.out.println("UDP Server listening on port 1234");
 
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[65535];
 
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -20,6 +20,7 @@ public class Server {
 
                 String message = new String(packet.getData(), 0, packet.getLength());
                 InetSocketAddress sender = new InetSocketAddress(packet.getAddress(), packet.getPort());
+                String senderName = names.get(sender);
 
                 if (message.startsWith("login:")) {
                     String name = message.substring(6).trim();
@@ -102,7 +103,6 @@ public class Server {
                         }
 
                         if (targetAddr != null) {
-                            String senderName = names.get(sender);
                             System.out.println("Private message from " + senderName + " to " + targetName + ": " + actualMessage);
 
                             // Send to target
@@ -139,6 +139,19 @@ public class Server {
                         }
                     }
 
+                } else if (message.startsWith("image:")) {
+                    String base64 = message.substring(6);
+                    String broadcastMessage = "image:" + senderName + ":" + base64;
+                    for (InetSocketAddress client : new HashSet<>(clients)) {
+                        DatagramPacket broadcastPacket = new DatagramPacket(broadcastMessage.getBytes(), broadcastMessage.length(), client.getAddress(), client.getPort());
+                        synchronized (socket) {
+                            try {
+                                socket.send(broadcastPacket);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
                 } else {
                     String name = names.get(sender);
                     if (name != null) {

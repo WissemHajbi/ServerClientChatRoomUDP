@@ -91,6 +91,10 @@ public class Client {
                 ActionListener sendAction = e -> {
                     String message = textField.getText().trim();
                     if (!message.isEmpty()) {
+                        String selected = list.getSelectedValue();
+                        if (selected != null) {
+                            message = "private:" + selected + ":" + message;
+                        }
                         try {
                             byte[] sendData = message.getBytes();
                             DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);

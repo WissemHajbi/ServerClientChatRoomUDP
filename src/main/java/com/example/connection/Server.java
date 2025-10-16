@@ -30,7 +30,12 @@ public class Server {
                     // Broadcast joined
                     String broadcastMessage = "joined:" + name;
                     for (InetSocketAddress client : new HashSet<>(clients)) {
-                        DatagramPacket broadcastPacket = new DatagramPacket(broadcastMessage.getBytes(), broadcastMessage.length(), client.getAddress(), client.getPort());
+                        DatagramPacket broadcastPacket = new DatagramPacket(
+                                broadcastMessage.getBytes(),
+                                broadcastMessage.length(),
+                                client.getAddress(),
+                                client.getPort()
+                        );
                         synchronized (socket) {
                             try {
                                 socket.send(broadcastPacket);
@@ -42,7 +47,12 @@ public class Server {
 
                     // Send list to new client
                     String listMessage = "list:" + String.join(",", names.values());
-                    DatagramPacket listPacket = new DatagramPacket(listMessage.getBytes(), listMessage.length(), sender.getAddress(), sender.getPort());
+                    DatagramPacket listPacket = new DatagramPacket(
+                            listMessage.getBytes(),
+                            listMessage.length(),
+                            sender.getAddress(),
+                            sender.getPort()
+                    );
                     synchronized (socket) {
                         try {
                             socket.send(listPacket);
@@ -61,7 +71,12 @@ public class Server {
                         // Broadcast left
                         String broadcastMessage = "left:" + name;
                         for (InetSocketAddress client : new HashSet<>(clients)) {
-                            DatagramPacket broadcastPacket = new DatagramPacket(broadcastMessage.getBytes(), broadcastMessage.length(), client.getAddress(), client.getPort());
+                            DatagramPacket broadcastPacket = new DatagramPacket(
+                                    broadcastMessage.getBytes(),
+                                    broadcastMessage.length(),
+                                    client.getAddress(),
+                                    client.getPort()
+                            );
                             synchronized (socket) {
                                 try {
                                     socket.send(broadcastPacket);
@@ -71,6 +86,59 @@ public class Server {
                             }
                         }
                     }
+
+                } else if (message.startsWith("private:")) {
+                    String[] parts = message.split(":", 3);
+                    if (parts.length == 3) {
+                        String targetName = parts[1];
+                        String actualMessage = parts[2];
+                        InetSocketAddress targetAddr = null;
+
+                        for (Map.Entry<InetSocketAddress, String> entry : names.entrySet()) {
+                            if (entry.getValue().equals(targetName)) {
+                                targetAddr = entry.getKey();
+                                break;
+                            }
+                        }
+
+                        if (targetAddr != null) {
+                            String senderName = names.get(sender);
+                            System.out.println("Private message from " + senderName + " to " + targetName + ": " + actualMessage);
+
+                            // Send to target
+                            String toTarget = "Private from " + senderName + ": " + actualMessage;
+                            DatagramPacket packetToTarget = new DatagramPacket(
+                                    toTarget.getBytes(),
+                                    toTarget.length(),
+                                    targetAddr.getAddress(),
+                                    targetAddr.getPort()
+                            );
+                            synchronized (socket) {
+                                try {
+                                    socket.send(packetToTarget);
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+
+                            // Send confirmation to sender
+                            String toSender = "To " + targetName + ": " + actualMessage;
+                            DatagramPacket packetToSender = new DatagramPacket(
+                                    toSender.getBytes(),
+                                    toSender.length(),
+                                    sender.getAddress(),
+                                    sender.getPort()
+                            );
+                            synchronized (socket) {
+                                try {
+                                    socket.send(packetToSender);
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                    }
+
                 } else {
                     String name = names.get(sender);
                     if (name != null) {
@@ -78,7 +146,12 @@ public class Server {
 
                         String broadcastMessage = name + ": " + message;
                         for (InetSocketAddress client : new HashSet<>(clients)) {
-                            DatagramPacket broadcastPacket = new DatagramPacket(broadcastMessage.getBytes(), broadcastMessage.length(), client.getAddress(), client.getPort());
+                            DatagramPacket broadcastPacket = new DatagramPacket(
+                                    broadcastMessage.getBytes(),
+                                    broadcastMessage.length(),
+                                    client.getAddress(),
+                                    client.getPort()
+                            );
                             synchronized (socket) {
                                 try {
                                     socket.send(broadcastPacket);

@@ -9,24 +9,43 @@ import java.awt.event.*;
 public class Client {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
+            String name = JOptionPane.showInputDialog(null, "Enter your name:", "Login", JOptionPane.QUESTION_MESSAGE);
+            if (name == null || name.trim().isEmpty()) {
+                return;
+            }
+            name = name.trim();
+
             try {
                 DatagramSocket socket = new DatagramSocket();
                 InetAddress serverAddress = InetAddress.getByName("localhost");
                 int serverPort = 1234;
 
-                JFrame frame = new JFrame("UDP Chat Client");
+                // Send login
+                byte[] loginData = ("login:" + name).getBytes();
+                DatagramPacket loginPacket = new DatagramPacket(loginData, loginData.length, serverAddress, serverPort);
+                socket.send(loginPacket);
+
+                JFrame frame = new JFrame("UDP Chat Client - " + name);
                 frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                frame.setSize(400, 300);
+                frame.setSize(600, 400);
 
                 JTextArea textArea = new JTextArea();
                 textArea.setEditable(false);
                 JScrollPane scrollPane = new JScrollPane(textArea);
 
+                DefaultListModel<String> model = new DefaultListModel<>();
+                JList<String> list = new JList<>(model);
+                JScrollPane listScrollPane = new JScrollPane(list);
+
+                JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollPane, listScrollPane);
+                splitPane.setDividerLocation(400);
+                splitPane.setResizeWeight(0.75);
+
                 JTextField textField = new JTextField();
                 JButton sendButton = new JButton("Send");
 
                 JPanel panel = new JPanel(new BorderLayout());
-                panel.add(scrollPane, BorderLayout.CENTER);
+                panel.add(splitPane, BorderLayout.CENTER);
 
                 JPanel bottomPanel = new JPanel(new BorderLayout());
                 bottomPanel.add(textField, BorderLayout.CENTER);
@@ -44,7 +63,23 @@ public class Client {
                             DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
                             socket.receive(receivePacket);
                             String response = new String(receivePacket.getData(), 0, receivePacket.getLength());
-                            SwingUtilities.invokeLater(() -> textArea.append(response + "\n"));
+                            if (response.startsWith("joined:")) {
+                                String joinedName = response.substring(7);
+                                SwingUtilities.invokeLater(() -> model.addElement(joinedName));
+                            } else if (response.startsWith("left:")) {
+                                String leftName = response.substring(5);
+                                SwingUtilities.invokeLater(() -> model.removeElement(leftName));
+                            } else if (response.startsWith("list:")) {
+                                String[] names = response.substring(5).split(",");
+                                SwingUtilities.invokeLater(() -> {
+                                    model.clear();
+                                    for (String n : names) {
+                                        if (!n.isEmpty()) model.addElement(n);
+                                    }
+                                });
+                            } else {
+                                SwingUtilities.invokeLater(() -> textArea.append(response + "\n"));
+                            }
                         }
                     } catch (IOException e) {
                         // Socket closed

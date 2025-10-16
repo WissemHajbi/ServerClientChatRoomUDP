@@ -6,6 +6,7 @@ import java.util.*;
 
 public class Server {
     private static Set<InetSocketAddress> clients = new HashSet<>();
+    private static Map<InetSocketAddress, String> names = new HashMap<>();
 
     public static void main(String[] args) {
         try (DatagramSocket socket = new DatagramSocket(1234)) {
@@ -20,21 +21,70 @@ public class Server {
                 String message = new String(packet.getData(), 0, packet.getLength());
                 InetSocketAddress sender = new InetSocketAddress(packet.getAddress(), packet.getPort());
 
-                if (message.equalsIgnoreCase("logout")) {
-                    clients.remove(sender);
-                    System.out.println("Client logged out: " + sender);
-                } else {
+                if (message.startsWith("login:")) {
+                    String name = message.substring(6).trim();
                     clients.add(sender);
-                    System.out.println("Received: " + message + " from " + sender);
+                    names.put(sender, name);
+                    System.out.println("Client logged in: " + name + " from " + sender);
 
-                    String broadcastMessage = "From " + sender + ": " + message;
-                    for (InetSocketAddress client : new HashSet<>(clients)) {  // copy to avoid concurrent mod
+                    // Broadcast joined
+                    String broadcastMessage = "joined:" + name;
+                    for (InetSocketAddress client : new HashSet<>(clients)) {
                         DatagramPacket broadcastPacket = new DatagramPacket(broadcastMessage.getBytes(), broadcastMessage.length(), client.getAddress(), client.getPort());
                         synchronized (socket) {
                             try {
                                 socket.send(broadcastPacket);
                             } catch (IOException e) {
                                 e.printStackTrace();
+                            }
+                        }
+                    }
+
+                    // Send list to new client
+                    String listMessage = "list:" + String.join(",", names.values());
+                    DatagramPacket listPacket = new DatagramPacket(listMessage.getBytes(), listMessage.length(), sender.getAddress(), sender.getPort());
+                    synchronized (socket) {
+                        try {
+                            socket.send(listPacket);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                } else if (message.equals("logout")) {
+                    String name = names.get(sender);
+                    if (name != null) {
+                        clients.remove(sender);
+                        names.remove(sender);
+                        System.out.println("Client logged out: " + name);
+
+                        // Broadcast left
+                        String broadcastMessage = "left:" + name;
+                        for (InetSocketAddress client : new HashSet<>(clients)) {
+                            DatagramPacket broadcastPacket = new DatagramPacket(broadcastMessage.getBytes(), broadcastMessage.length(), client.getAddress(), client.getPort());
+                            synchronized (socket) {
+                                try {
+                                    socket.send(broadcastPacket);
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    String name = names.get(sender);
+                    if (name != null) {
+                        System.out.println("Message from " + name + ": " + message);
+
+                        String broadcastMessage = name + ": " + message;
+                        for (InetSocketAddress client : new HashSet<>(clients)) {
+                            DatagramPacket broadcastPacket = new DatagramPacket(broadcastMessage.getBytes(), broadcastMessage.length(), client.getAddress(), client.getPort());
+                            synchronized (socket) {
+                                try {
+                                    socket.send(broadcastPacket);
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
                             }
                         }
                     }

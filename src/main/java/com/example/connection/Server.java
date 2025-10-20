@@ -40,6 +40,9 @@ public class Server {
                     case "image":
                         handleImage(socket, sender, message);
                         break;
+                    case "typing":
+                        handleTyping(socket, sender, message);
+                        break;
                     default:
                         handleBroadcast(socket, sender, message);
                         break;
@@ -105,6 +108,13 @@ public class Server {
         String messageInBase64 = message.substring(message.indexOf(':') + 1);
         String broadcastMessage = "image:" + (senderName == null ? "unknown" : senderName) + ":" + messageInBase64;
         broadcast(socket, broadcastMessage);
+    }
+
+    private static void handleTyping(DatagramSocket socket, InetSocketAddress sender, String message) throws IOException {
+        String name = names.get(sender);
+        if (name != null) {
+            broadcast(socket, message);
+        }
     }
 
     private static void handleBroadcast(DatagramSocket socket, InetSocketAddress sender, String message) throws IOException {

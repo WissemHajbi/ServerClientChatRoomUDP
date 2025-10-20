@@ -39,6 +39,17 @@ public class Client {
                 // Create GUI using the extracted method
                 GUIComponents comps = createGUI(name);
 
+                // Add typing listener
+                comps.textField.addKeyListener(new KeyAdapter() {
+                    @Override
+                    public void keyTyped(KeyEvent e) {
+                        if (!comps.textField.getText().trim().isEmpty() && System.currentTimeMillis() - comps.lastTypingTime > 1000) {
+                            sendTyping(comps, socket, serverAddress, serverPort);
+                            comps.lastTypingTime = System.currentTimeMillis();
+                        }
+                    }
+                });
+
                 // Start receiving thread
                 // A thread is like a separate worker that runs code in parallel to the main program.
                 // We need a thread for receiving because UDP socket.receive() blocks (waits) until a message arrives.
@@ -101,24 +112,37 @@ public class Client {
         JButton sendButton;
         JButton sendImageButton;
         JButton logoutButton;
+        JLabel typingLabel;
+        String userName;
+        Timer typingTimer;
+        long lastTypingTime;
     }
 
     private static GUIComponents createGUI(String name) {
         GUIComponents comps = new GUIComponents();
+        comps.userName = name;
+        comps.lastTypingTime = System.currentTimeMillis() - 2000; // Allow immediate first send
 
         comps.frame = new JFrame("UDP Chat Client - " + name);
         comps.frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         comps.frame.setSize(600, 400);
 
         comps.textPane = new JTextPane();
+        comps.typingLabel = new JLabel("");
+        comps.typingLabel.setForeground(Color.GRAY);
         comps.textPane.setEditable(false);
+
+        JPanel chatPanel = new JPanel(new BorderLayout());
+        chatPanel.add(comps.typingLabel, BorderLayout.NORTH);
         JScrollPane scrollPane = new JScrollPane(comps.textPane);
+        chatPanel.add(scrollPane, BorderLayout.CENTER);
+        JScrollPane chatScrollPane = new JScrollPane(chatPanel);
 
         comps.model = new DefaultListModel<>();
         comps.list = new JList<>(comps.model);
         JScrollPane listScrollPane = new JScrollPane(comps.list);
 
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollPane, listScrollPane);
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, chatScrollPane, listScrollPane);
         splitPane.setDividerLocation(400);
         splitPane.setResizeWeight(0.75);
 
@@ -228,7 +252,9 @@ public class Client {
             handleList(response, comps);
         } else if (response.startsWith("image:")) {
             handleImageReceive(response, comps);
-        } else {
+        } else if (response.startsWith("typing:")){
+            handleTyping(response, comps);
+        } else{
             handleMessage(response, comps);
         }
     }
@@ -245,9 +271,21 @@ public class Client {
                 DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);
                 socket.send(sendPacket);
                 comps.textField.setText("");
+                comps.typingLabel.setText(""); // Clear typing indicator
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
+        }
+    }
+
+    private static void sendTyping(GUIComponents comps, DatagramSocket socket, InetAddress serverAddress, int serverPort) {
+        try {
+            String message = "typing:" + comps.userName;
+            byte[] sendData = message.getBytes();
+            DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);
+            socket.send(sendPacket);
+        } catch (IOException ex) {
+            ex.printStackTrace();
         }
     }
 
@@ -301,5 +339,17 @@ public class Client {
         frame.dispose();
     }
 
-    
+    private static void handleTyping(String response, GUIComponents comps) {
+        String typer = response.substring(7); 
+        System.out.println(typer);
+        if (!typer.equals(comps.userName)) { 
+            SwingUtilities.invokeLater(() -> comps.typingLabel.setText(typer + " is typing..."));
+            if (comps.typingTimer != null) {
+                comps.typingTimer.stop();
+            }
+            comps.typingTimer = new Timer(3000, e -> SwingUtilities.invokeLater(() -> comps.typingLabel.setText("")));
+            comps.typingTimer.setRepeats(false);
+            comps.typingTimer.start();
+        }
+    }
 }

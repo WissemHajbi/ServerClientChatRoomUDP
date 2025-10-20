@@ -71,9 +71,13 @@ public class Client {
                 // Send image action
                 comps.sendImageButton.addActionListener(e -> sendImage(comps, socket, serverAddress, serverPort));
 
+                // Logout action
+                comps.logoutButton.addActionListener(e -> logout(socket, receiver, serverAddress, serverPort, comps.frame));
+
                 // On close, handle logout
                 handleWindowClose(comps.frame, socket, receiver, serverAddress, serverPort);
-
+             
+                
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
@@ -96,6 +100,7 @@ public class Client {
         JTextField textField;
         JButton sendButton;
         JButton sendImageButton;
+        JButton logoutButton;
     }
 
     private static GUIComponents createGUI(String name) {
@@ -121,6 +126,7 @@ public class Client {
         comps.textField.setPreferredSize(new Dimension(300, 25)); // Fix width issue
         comps.sendButton = new JButton("Send");
         comps.sendImageButton = new JButton("Send Image");
+        comps.logoutButton = new JButton("Logout");
 
         JPanel panel = new JPanel(new BorderLayout());
         panel.add(splitPane, BorderLayout.CENTER);
@@ -129,6 +135,7 @@ public class Client {
         bottomPanel.add(comps.textField);
         bottomPanel.add(comps.sendButton);
         bottomPanel.add(comps.sendImageButton);
+        bottomPanel.add(comps.logoutButton);
 
         panel.add(bottomPanel, BorderLayout.SOUTH);
         comps.frame.add(panel);
@@ -273,12 +280,25 @@ public class Client {
                     DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);
                     socket.send(sendPacket);
                 } catch (IOException ex) {
-                    // ignore
+                    System.out.println("Error logging out");
                 }
                 socket.close();
                 receiver.interrupt();
             }
         });
+    }
+
+    private static void logout(DatagramSocket socket, Thread receiver, InetAddress serverAddress, int serverPort, JFrame frame) {
+        try {
+            byte[] sendData = "logout".getBytes();
+            DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);
+            socket.send(sendPacket);
+        } catch (IOException ex) {
+            // ignore
+        }
+        socket.close();
+        receiver.interrupt();
+        frame.dispose();
     }
 
     

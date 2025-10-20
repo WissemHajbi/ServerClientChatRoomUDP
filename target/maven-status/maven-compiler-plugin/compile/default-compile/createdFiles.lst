@@ -1,3 +1,4 @@
 com\example\connection\Server.class
+com\example\connection\Client$GUIComponents.class
 com\example\connection\Client.class
 com\example\connection\Client$1.class

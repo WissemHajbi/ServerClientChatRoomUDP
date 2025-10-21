@@ -11,6 +11,8 @@ import java.util.Base64; // For encoding/decoding binary data to Base64 strings
 import javax.swing.text.*; // For text components like JTextPane and document manipulation
 import java.awt.image.BufferedImage; // For handling image data
 import javax.imageio.ImageIO; // For reading images from byte streams
+import java.time.LocalTime; // For timestamps
+import java.time.format.DateTimeFormatter; // For formatting timestamps
 
 public class Client {
 
@@ -253,7 +255,7 @@ public class Client {
                     ImageIcon icon = new ImageIcon(image);
                     SwingUtilities.invokeLater(() -> {
                         try {
-                            comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), sender + " sent an image:\n", null);
+                            comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), timeStamp() + sender + " sent an image:\n", null);
                             comps.textPane.insertIcon(icon);
                             comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), "\n", null);
                         } catch (BadLocationException e) {
@@ -263,7 +265,7 @@ public class Client {
                 } else {
                     SwingUtilities.invokeLater(() -> {
                         try {
-                            comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), sender + " sent an invalid image.\n", null);
+                            comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), timeStamp() + sender + " sent an invalid image.\n", null);
                         } catch (BadLocationException e) {
                             e.printStackTrace();
                         }
@@ -272,7 +274,7 @@ public class Client {
             } catch (IOException ioEx) {
                 SwingUtilities.invokeLater(() -> {
                     try {
-                        comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), sender + " sent an invalid image.\n", null);
+                        comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), timeStamp() + sender + " sent an invalid image.\n", null);
                     } catch (BadLocationException e) {
                         e.printStackTrace();
                     }
@@ -284,11 +286,16 @@ public class Client {
     private static void handleMessage(String response, GUIComponents comps) {
         SwingUtilities.invokeLater(() -> {
             try {
-                comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), response + "\n", null);
+                comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), timeStamp() + response + "\n", null);
             } catch (BadLocationException e) {
                 e.printStackTrace();
             }
         });
+    }
+
+    // Return a short timestamp like [14:32] to prefix messages
+    private static String timeStamp() {
+        return "[" + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")) + "] ";
     }
 
     private static void handleReceive(String response, GUIComponents comps) {

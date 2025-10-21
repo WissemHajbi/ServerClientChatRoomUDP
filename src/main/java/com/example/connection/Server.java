@@ -3,18 +3,18 @@ package com.example.connection;
 import java.io.*;  // IOException
 import java.net.*; // DatagramSocket, DatagramPacket, and InetSocketAddress.
 import java.util.*; // Set, Map, and HashSet
+import java.util.stream.Collectors; // For stream operations
 
 public class Server {
-    // InetSocketAddress = point de communication
     private static Set<InetSocketAddress> clients = new HashSet<>();
     private static Map<InetSocketAddress, String> names = new HashMap<>();
+    private static Map<String, String> userStatuses = new HashMap<>(); // name -> "online"/"offline"
 
     public static void main(String[] args) {
-        try (DatagramSocket socket = new DatagramSocket(1234)) { // socket bound to all local addresses on port 1234
+        try (DatagramSocket socket = new DatagramSocket(1234)) {
             System.out.println("UDP Server listening on port 1234");
 
-            // UDP packets can be up to 65507 bytes of payload
-            byte[] buffer = new byte[65535]; 
+            byte[] buffer = new byte[65535];
 
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -53,19 +53,19 @@ public class Server {
         }
     }
 
-    // Handles
     private static void handleLogin(DatagramSocket socket, InetSocketAddress sender, String message) throws IOException {
         String name = message.substring(message.indexOf(':') + 1).trim();
         clients.add(sender);
         names.put(sender, name);
+        userStatuses.put(name, "online"); // update or add user status
         System.out.println("Client logged in: " + name + " from " + sender);
 
-        // Broadcast joined
-        String broadcastMessage = "joined:" + name;
-        broadcast(socket, broadcastMessage);
+        // Broadcast updated list (online/offline for all)
+        broadcastUserList(socket);
 
-        // Send list to new client
-        String listMessage = "list:" + String.join(",", names.values());
+        String listMessage = "list:" + userStatuses.entrySet().stream()
+            .map(e -> e.getKey() + ":" + e.getValue())
+            .collect(Collectors.joining(","));
         sendTo(socket, listMessage, sender);
     }
 
@@ -74,12 +74,20 @@ public class Server {
         if (name != null) {
             clients.remove(sender);
             names.remove(sender);
+            userStatuses.put(name, "offline"); // mark user as offline
             System.out.println("Client logged out: " + name);
 
-            // Broadcast left
-            String broadcastMessage = "left:" + name;
-            broadcast(socket, broadcastMessage);
+            // Broadcast updated list (online/offline for all)
+            broadcastUserList(socket);
         }
+    }
+
+    // 🔧 NEW small helper to send the full list
+    private static void broadcastUserList(DatagramSocket socket) throws IOException {
+        String listMessage = "list:" + userStatuses.entrySet().stream()
+                .map(e -> e.getKey() + ":" + e.getValue())
+                .collect(Collectors.joining(","));
+        broadcast(socket, listMessage);
     }
 
     private static void handlePrivate(DatagramSocket socket, InetSocketAddress sender, String message) throws IOException {
@@ -93,11 +101,9 @@ public class Server {
         if (targetAddr != null && senderName != null) {
             System.out.println("Private message from " + senderName + " to " + targetName + ": " + actualMessage);
 
-            // Send to target
             String messageToTarget = "Private from " + senderName + ": " + actualMessage;
             sendTo(socket, messageToTarget, targetAddr);
 
-            // Send confirmation to sender
             String messageToSender = "To " + targetName + ": " + actualMessage;
             sendTo(socket, messageToSender, sender);
         }
@@ -125,7 +131,7 @@ public class Server {
         broadcast(socket, broadcastMessage);
     }
 
-    // Util 
+    // Utils
     private static InetSocketAddress findAddressByName(String name) {
         for (Map.Entry<InetSocketAddress, String> entry : names.entrySet()) {
             if (entry.getValue().equals(name)) return entry.getKey();

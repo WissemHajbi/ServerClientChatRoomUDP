@@ -31,11 +31,6 @@ public class Client {
                 InetAddress serverAddress = InetAddress.getByName("localhost"); // point de communication server
                 int serverPort = 1234;
 
-                // Send login
-                byte[] loginData = ("login:" + name).getBytes();
-                DatagramPacket loginPacket = new DatagramPacket(loginData, loginData.length, serverAddress, serverPort);
-                socket.send(loginPacket);
-
                 // Create GUI using the extracted method
                 GUIComponents comps = createGUI(name);
 
@@ -70,6 +65,11 @@ public class Client {
                     }
                 });
                 receiver.start();
+
+                // Send login
+                byte[] loginData = ("login:" + name).getBytes();
+                DatagramPacket loginPacket = new DatagramPacket(loginData, loginData.length, serverAddress, serverPort);
+                socket.send(loginPacket);
 
                 // Send action
                 // ActionListener is an interface that lets us respond to events like button clicks.
@@ -106,8 +106,8 @@ public class Client {
     private static class GUIComponents {
         JFrame frame;
         JTextPane textPane;
-        DefaultListModel<String> model;
-        JList<String> list;
+        DefaultListModel<User> model;
+        JList<User> list;
         JTextField textField;
         JButton sendButton;
         JButton sendImageButton;
@@ -116,6 +116,29 @@ public class Client {
         String userName;
         Timer typingTimer;
         long lastTypingTime;
+    }
+
+    private static class User {
+        String name;
+        boolean online;
+
+        User(String name, boolean online) {
+            this.name = name;
+            this.online = online;
+        }
+    }
+
+    private static class UserCellRenderer extends DefaultListCellRenderer {
+        @Override
+        public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            if (value instanceof User) {
+                User user = (User) value;
+                setText(user.name + (user.online ? " ●" : " ○"));
+                setForeground(user.online ? Color.GREEN : Color.GRAY);
+            }
+            return this;
+        }
     }
 
     private static GUIComponents createGUI(String name) {
@@ -140,6 +163,7 @@ public class Client {
 
         comps.model = new DefaultListModel<>();
         comps.list = new JList<>(comps.model);
+        comps.list.setCellRenderer(new UserCellRenderer());
         JScrollPane listScrollPane = new JScrollPane(comps.list);
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, chatScrollPane, listScrollPane);
@@ -170,24 +194,48 @@ public class Client {
 
     // handlers
     private static void handleJoined(String response, GUIComponents comps) {
-        String joinedName = response.substring(7);
-        SwingUtilities.invokeLater(() -> comps.model.addElement(joinedName));
-    }
-
-    private static void handleLeft(String response, GUIComponents comps) {
-        String leftName = response.substring(5);
-        SwingUtilities.invokeLater(() -> comps.model.removeElement(leftName));
-    }
-
-    private static void handleList(String response, GUIComponents comps) {
-        String[] names = response.substring(5).split(",");
+        String name = response.substring(7);
         SwingUtilities.invokeLater(() -> {
-            comps.model.clear();
-            for (String n : names) {
-                if (!n.isEmpty()) comps.model.addElement(n);
+            User user = findUserByName(comps.model, name);
+            if (user == null) {
+                comps.model.addElement(new User(name, true));
+            } else {
+                user.online = true;
+                comps.list.repaint();
             }
         });
     }
+
+    private static void handleLeft(String response, GUIComponents comps) {
+        String name = response.substring(5);
+        SwingUtilities.invokeLater(() -> {
+            User user = findUserByName(comps.model, name);
+            if (user != null) {
+                user.online = false;
+                comps.list.repaint();
+            }
+        });
+    }
+
+    private static void handleList(String response, GUIComponents comps) {
+    String[] parts = response.substring(5).split(",");
+    SwingUtilities.invokeLater(() -> {
+        comps.model.clear();
+        for (String part : parts) {
+            if (!part.isEmpty()) {
+                String[] sub = part.split(":");
+                if (sub.length == 2) {
+                    String name = sub[0];
+                    if (!name.equals(comps.userName)) { // exclude self
+                        boolean online = "online".equals(sub[1]);
+                        comps.model.addElement(new User(name, online));
+                    }
+                }
+            }
+        }
+    });
+}
+
 
     // Image sending/receiving/displaying: 
     // Sending: Read image file as bytes, encode to Base64 string, send as "image:base64string"
@@ -262,9 +310,9 @@ public class Client {
     private static void sendMessage(GUIComponents comps, DatagramSocket socket, InetAddress serverAddress, int serverPort) {
         String message = comps.textField.getText().trim();
         if (!message.isEmpty()) {
-            String selected = comps.list.getSelectedValue();
+            User selected = comps.list.getSelectedValue();
             if (selected != null) {
-                message = "private:" + selected + ":" + message;
+                message = "private:" + selected.name + ":" + message;
             }
             try {
                 byte[] sendData = message.getBytes();
@@ -337,6 +385,16 @@ public class Client {
         socket.close();
         receiver.interrupt();
         frame.dispose();
+    }
+
+    private static User findUserByName(DefaultListModel<User> model, String name) {
+        for (int i = 0; i < model.getSize(); i++) {
+            User user = model.getElementAt(i);
+            if (user.name.equals(name)) {
+                return user;
+            }
+        }
+        return null;
     }
 
     private static void handleTyping(String response, GUIComponents comps) {

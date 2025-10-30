@@ -17,6 +17,10 @@ import javax.sound.sampled.*; // For audio recording and playback
 import java.io.ByteArrayInputStream; // For audio data streams
 import java.io.File; // For file operations
 import java.util.prefs.Preferences; // For saving user preferences
+import javax.swing.text.html.HTMLEditorKit; // For HTML editing in JTextPane
+import javax.swing.text.html.HTMLDocument; // For HTML document manipulation
+import javax.swing.text.html.StyleSheet; // For styling HTML in JTextPane
+import javax.swing.BorderFactory; // For creating borders
 
 public class Client {
 
@@ -243,26 +247,48 @@ public class Client {
         comps.frame = new JFrame("UDP Chat Client - " + name);
         comps.frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         comps.frame.setSize(800, 400);
+        comps.frame.getContentPane().setBackground(Color.WHITE);
 
         comps.textPane = new JTextPane();
+        comps.textPane.setContentType("text/html");
+        HTMLEditorKit kit = new HTMLEditorKit();
+        comps.textPane.setEditorKit(kit);
+        StyleSheet styleSheet = kit.getStyleSheet();
+        styleSheet.addRule("body { margin: 0; padding: 0; background-color: white; }");
+        comps.textPane.setBackground(Color.WHITE);
+        comps.textPane.setBorder(null);
+        comps.textPane.setText("<html><body style='margin:0; padding:0; background-color:white;'></body></html>");
         comps.typingLabel = new JLabel("");
         comps.typingLabel.setForeground(Color.GRAY);
+        comps.typingLabel.setVisible(false);
+        comps.typingLabel.setFont(new Font("Arial", Font.ITALIC, 12));
+        comps.typingLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        comps.typingLabel.setBackground(new Color(240, 240, 240));
+        comps.typingLabel.setOpaque(true);
         comps.textPane.setEditable(false);
 
         JPanel chatPanel = new JPanel(new BorderLayout());
+        chatPanel.setBackground(Color.WHITE);
         chatPanel.add(comps.typingLabel, BorderLayout.NORTH);
         JScrollPane scrollPane = new JScrollPane(comps.textPane);
+        scrollPane.getViewport().setBackground(Color.WHITE);
+        scrollPane.setBorder(null);
         chatPanel.add(scrollPane, BorderLayout.CENTER);
         JScrollPane chatScrollPane = new JScrollPane(chatPanel);
 
         comps.model = new DefaultListModel<>();
         comps.list = new JList<>(comps.model);
         comps.list.setCellRenderer(new UserCellRenderer());
+        comps.list.setBackground(Color.WHITE);
         JScrollPane listScrollPane = new JScrollPane(comps.list);
+        listScrollPane.getViewport().setBackground(Color.WHITE);
+        listScrollPane.setBorder(null);
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, chatScrollPane, listScrollPane);
         splitPane.setDividerLocation(400);
         splitPane.setResizeWeight(0.75);
+        splitPane.setBackground(Color.WHITE);
+        splitPane.setOpaque(true);
 
         comps.textField = new JTextField();
         comps.textField.setPreferredSize(new Dimension(200, 25)); // Fix width issue
@@ -277,9 +303,11 @@ public class Client {
         comps.currentStatus = "online";
 
         JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(Color.WHITE);
         panel.add(splitPane, BorderLayout.CENTER);
 
         JPanel bottomPanel = new JPanel(new FlowLayout());
+        bottomPanel.setBackground(Color.WHITE);
         bottomPanel.add(comps.textField);
         bottomPanel.add(comps.sendButton);
         bottomPanel.add(comps.sendImageButton);
@@ -378,30 +406,39 @@ public class Client {
             try {
                 BufferedImage image = ImageIO.read(new ByteArrayInputStream(bytes));
                 if (image != null) {
-                    ImageIcon icon = new ImageIcon(image);
                     SwingUtilities.invokeLater(() -> {
+                        String html = "<div style='text-align:left; margin:5px 10px;'><div style='background-color:#FFFFFF; padding:8px 12px; border-radius:18px; display:inline-block; max-width:70%; border:1px solid #CCCCCC;'>" +
+                                      "<b>" + sender + " sent an image:</b><br><img src='data:image/png;base64," + base64 + "' style='max-width:200px; border-radius:5px;'/><br><small style='color:gray; font-size:10px;'>" + timeStamp() + "</small></div></div>";
+                        HTMLEditorKit kit = (HTMLEditorKit) comps.textPane.getEditorKit();
+                        HTMLDocument doc = (HTMLDocument) comps.textPane.getDocument();
                         try {
-                            comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), timeStamp() + sender + " sent an image:\n", null);
-                            comps.textPane.insertIcon(icon);
-                            comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), "\n", null);
-                        } catch (BadLocationException e) {
+                            kit.insertHTML(doc, doc.getLength(), html, 0, 0, null);
+                        } catch (BadLocationException | IOException e) {
                             e.printStackTrace();
                         }
                     });
                 } else {
                     SwingUtilities.invokeLater(() -> {
+                        String html = "<div style='text-align:left; margin:5px 10px;'><div style='background-color:#FFFFFF; padding:8px 12px; border-radius:18px; display:inline-block; max-width:70%; border:1px solid #CCCCCC;'>" +
+                                      "<b>" + sender + " sent an invalid image.</b><br><small style='color:gray; font-size:10px;'>" + timeStamp() + "</small></div></div>";
+                        HTMLEditorKit kit = (HTMLEditorKit) comps.textPane.getEditorKit();
+                        HTMLDocument doc = (HTMLDocument) comps.textPane.getDocument();
                         try {
-                            comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), timeStamp() + sender + " sent an invalid image.\n", null);
-                        } catch (BadLocationException e) {
+                            kit.insertHTML(doc, doc.getLength(), html, 0, 0, null);
+                        } catch (BadLocationException | IOException e) {
                             e.printStackTrace();
                         }
                     });
                 }
             } catch (IOException ioEx) {
                 SwingUtilities.invokeLater(() -> {
+                    String html = "<div style='text-align:left; margin:5px 10px;'><div style='background-color:#FFFFFF; padding:8px 12px; border-radius:18px; display:inline-block; max-width:70%; border:1px solid #CCCCCC;'>" +
+                                  "<b>" + sender + " sent an invalid image.</b><br><small style='color:gray; font-size:10px;'>" + timeStamp() + "</small></div></div>";
+                    HTMLEditorKit kit = (HTMLEditorKit) comps.textPane.getEditorKit();
+                    HTMLDocument doc = (HTMLDocument) comps.textPane.getDocument();
                     try {
-                        comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), timeStamp() + sender + " sent an invalid image.\n", null);
-                    } catch (BadLocationException e) {
+                        kit.insertHTML(doc, doc.getLength(), html, 0, 0, null);
+                    } catch (BadLocationException | IOException e) {
                         e.printStackTrace();
                     }
                 });
@@ -410,18 +447,46 @@ public class Client {
     }
 
     private static void handleMessage(String response, GUIComponents comps) {
-        SwingUtilities.invokeLater(() -> {
-            try {
-                comps.textPane.getDocument().insertString(comps.textPane.getDocument().getLength(), timeStamp() + response + "\n", null);
-            } catch (BadLocationException e) {
-                e.printStackTrace();
-            }
-        });
+        String[] parts = response.split(":", 2);
+        if (parts.length == 2) {
+            String sender = parts[0];
+            String originalMessage = parts[1];
+            if (sender.equals(comps.userName)) return; // Skip own messages received back from server
+            boolean isPrivate = originalMessage.startsWith("(private) ");
+            String message = isPrivate ? originalMessage.substring(10) : originalMessage;
+            SwingUtilities.invokeLater(() -> insertMessage(comps, sender, message, false, isPrivate));
+        } else {
+            // fallback
+            SwingUtilities.invokeLater(() -> {
+                HTMLEditorKit kit = (HTMLEditorKit) comps.textPane.getEditorKit();
+                HTMLDocument doc = (HTMLDocument) comps.textPane.getDocument();
+                try {
+                    kit.insertHTML(doc, doc.getLength(), "<div>" + timeStamp() + response + "</div>", 0, 0, null);
+                } catch (BadLocationException | IOException e) {
+                    e.printStackTrace();
+                }
+            });
+        }
     }
 
     // Return a short timestamp like [14:32] to prefix messages
     private static String timeStamp() {
         return "[" + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")) + "] ";
+    }
+
+    private static void insertMessage(GUIComponents comps, String sender, String message, boolean isOwn, boolean isPrivate) {
+        String align = isOwn ? "right" : "left";
+        String color = isOwn ? "#DCF8C6" : "#FFFFFF"; // light green for sent, white for received
+        String borderColor = isPrivate ? "#FF6B6B" : "#CCCCCC"; // red border for private
+        String html = "<div style='text-align:" + align + "; margin: 5px 10px;'><div style='background-color:" + color + "; padding: 8px 12px; border-radius: 18px; display: inline-block; max-width: 70%; word-wrap: break-word; border: 1px solid " + borderColor + ";'>" +
+                      "<b>" + sender + ":</b> " + message.replace("\n", "<br>") + "<br><small style='color:gray; font-size:10px;'>" + timeStamp() + "</small></div></div>";
+        HTMLEditorKit kit = (HTMLEditorKit) comps.textPane.getEditorKit();
+        HTMLDocument doc = (HTMLDocument) comps.textPane.getDocument();
+        try {
+            kit.insertHTML(doc, doc.getLength(), html, 0, 0, null);
+        } catch (BadLocationException | IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private static void handleReceive(String response, GUIComponents comps) {
@@ -457,8 +522,17 @@ public class Client {
                 byte[] sendData = message.getBytes();
                 DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, serverPort);
                 socket.send(sendPacket);
+                // Display sent message locally
+                String displayMessage = message;
+                boolean isPrivate = selected != null;
+                if (isPrivate) {
+                    int firstColon = message.indexOf(":");
+                    int secondColon = message.indexOf(":", firstColon + 1);
+                    displayMessage = message.substring(secondColon + 1);
+                }
+                insertMessage(comps, comps.userName, displayMessage, true, isPrivate);
                 comps.textField.setText("");
-                comps.typingLabel.setText(""); // Clear typing indicator
+                // Typing indicator is at the top, no need to clear
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
@@ -642,11 +716,17 @@ public class Client {
         String typer = response.substring(7);
         System.out.println(typer);
         if (!typer.equals(comps.userName)) {
-            SwingUtilities.invokeLater(() -> comps.typingLabel.setText(typer + " is typing..."));
+            SwingUtilities.invokeLater(() -> {
+                comps.typingLabel.setText(typer + " is typing...");
+                comps.typingLabel.setVisible(true);
+            });
             if (comps.typingTimer != null) {
                 comps.typingTimer.stop();
             }
-            comps.typingTimer = new Timer(3000, e -> SwingUtilities.invokeLater(() -> comps.typingLabel.setText("")));
+            comps.typingTimer = new Timer(3000, e -> SwingUtilities.invokeLater(() -> {
+                comps.typingLabel.setText("");
+                comps.typingLabel.setVisible(false);
+            }));
             comps.typingTimer.setRepeats(false);
             comps.typingTimer.start();
         }

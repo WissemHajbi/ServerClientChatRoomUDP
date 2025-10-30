@@ -6,9 +6,11 @@ import java.util.*; // Set, Map, and HashSet
 import java.util.stream.Collectors; // For stream operations
 
 public class Server {
-    private static Set<InetSocketAddress> clients = new HashSet<>();
     private static Map<InetSocketAddress, String> names = new HashMap<>();
+    
+    private static Set<InetSocketAddress> clients = new HashSet<>();
     private static Map<String, String> userStatuses = new HashMap<>();
+
     private static final String[] VALID_STATUSES = {"online", "invisible", "away", "busy"};
     private static String FILE_PATH = "history.txt";
 

@@ -8,7 +8,8 @@ import java.util.stream.Collectors; // For stream operations
 public class Server {
     private static Set<InetSocketAddress> clients = new HashSet<>();
     private static Map<InetSocketAddress, String> names = new HashMap<>();
-    private static Map<String, String> userStatuses = new HashMap<>(); 
+    private static Map<String, String> userStatuses = new HashMap<>();
+    private static final String[] VALID_STATUSES = {"online", "invisible", "away", "busy"};
     private static String FILE_PATH = "history.txt";
 
     public static void main(String[] args) {
@@ -35,11 +36,20 @@ public class Server {
                     case "logout":
                         handleLogout(socket, sender);
                         break;
+                    case "status":
+                        handleStatus(socket, sender, message);
+                        break;
                     case "private":
                         handlePrivate(socket, sender, message);
                         break;
                     case "image":
                         handleImage(socket, sender, message);
+                        break;
+                    case "file":
+                        handleFile(socket, sender, message);
+                        break;
+                    case "voice":
+                        handleVoice(socket, sender, message);
                         break;
                     case "typing":
                         handleTyping(socket, sender, message);
@@ -128,6 +138,42 @@ public class Server {
         String messageInBase64 = message.substring(message.indexOf(':') + 1);
         String broadcastMessage = "image:" + (senderName == null ? "unknown" : senderName) + ":" + messageInBase64;
         broadcast(socket, broadcastMessage);
+    }
+
+    private static void handleFile(DatagramSocket socket, InetSocketAddress sender, String message) throws IOException {
+        String senderName = names.get(sender);
+        String messageInBase64 = message.substring(message.indexOf(':') + 1);
+        String broadcastMessage = "file:" + (senderName == null ? "unknown" : senderName) + ":" + messageInBase64;
+        broadcast(socket, broadcastMessage);
+    }
+
+    private static void handleVoice(DatagramSocket socket, InetSocketAddress sender, String message) throws IOException {
+        String senderName = names.get(sender);
+        String messageInBase64 = message.substring(message.indexOf(':') + 1);
+        String broadcastMessage = "voice:" + (senderName == null ? "unknown" : senderName) + ":" + messageInBase64;
+        broadcast(socket, broadcastMessage);
+    }
+
+    private static void handleStatus(DatagramSocket socket, InetSocketAddress sender, String message) throws IOException {
+        String senderName = names.get(sender);
+        if (senderName != null) {
+            String newStatus = message.substring(message.indexOf(':') + 1).trim();
+            // Validate status
+            boolean isValidStatus = false;
+            for (String validStatus : VALID_STATUSES) {
+                if (validStatus.equals(newStatus)) {
+                    isValidStatus = true;
+                    break;
+                }
+            }
+            if (isValidStatus) {
+                userStatuses.put(senderName, newStatus);
+                System.out.println("User " + senderName + " changed status to: " + newStatus);
+                // Broadcast status update to all clients
+                String statusMessage = "status:" + senderName + ":" + newStatus;
+                broadcast(socket, statusMessage);
+            }
+        }
     }
 
     private static void handleTyping(DatagramSocket socket, InetSocketAddress sender, String message) throws IOException {

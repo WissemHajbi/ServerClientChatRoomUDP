@@ -1,4 +1,7 @@
-com\example\connection\Server.class
-com\example\connection\Client$GUIComponents.class
+com\example\connection\Client$UserCellRenderer.class
 com\example\connection\Client.class
 com\example\connection\Client$1.class
+com\example\connection\Client$User.class
+com\example\connection\Server.class
+com\example\connection\Client$2.class
+com\example\connection\Client$GUIComponents.class

@@ -166,36 +166,70 @@ public class Client {
         }
     }
 
+    /**
+     * Icon implementation that draws an anti-aliased filled circle.
+     */
+    private static class CircleIcon implements Icon {
+        private final Color color;
+        private final int size;
+
+        CircleIcon(Color color, int size) {
+            this.color = color == null ? Color.GRAY : color;
+            this.size = size;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
+        }
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            try {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(color);
+                g2.fillOval(x, y, size, size);
+                g2.setColor(color.darker());
+                g2.drawOval(x, y, size - 1, size - 1);
+            } finally {
+                g2.dispose();
+            }
+        }
+    }
+
+    /**
+     * Renders a user row with a small colored circle icon to represent status.
+     * This avoids relying on emoji rendering which can look inconsistent across platforms.
+     */
     private static class UserCellRenderer extends DefaultListCellRenderer {
+        private final int iconSize = 12;
+
         @Override
         public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
             super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
             if (value instanceof User) {
                 User user = (User) value;
-                String statusIcon = getStatusIcon(user.status);
-                Color statusColor = getStatusColor(user.status);
-                setText(user.name + " " + statusIcon);
-                setForeground(statusColor);
+                setText(user.name);
+                setIcon(new CircleIcon(getStatusColor(user.status), iconSize));
+                setIconTextGap(8);
+            } else {
+                setIcon(null);
             }
             return this;
         }
 
-        private String getStatusIcon(String status) {
-            switch (status) {
-                case "online": return "🟢";
-                case "invisible": return "⚫";
-                case "away": return "🟡";
-                case "busy": return "🔴";
-                default: return "⚪";
-            }
-        }
-
         private Color getStatusColor(String status) {
             switch (status) {
-                case "online": return Color.GREEN;
-                case "invisible": return Color.GRAY;
-                case "away": return Color.ORANGE;
-                case "busy": return Color.RED;
+                case "online": return new Color(0x1DB954); // pleasant green
+                case "invisible": return Color.LIGHT_GRAY;
+                case "away": return new Color(0xFFC107); // amber
+                case "busy": return new Color(0xD32F2F); // red
                 default: return Color.GRAY;
             }
         }

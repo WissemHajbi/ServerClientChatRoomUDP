@@ -8,7 +8,8 @@ import java.util.stream.Collectors; // For stream operations
 public class Server {
     private static Set<InetSocketAddress> clients = new HashSet<>();
     private static Map<InetSocketAddress, String> names = new HashMap<>();
-    private static Map<String, String> userStatuses = new HashMap<>(); // name -> "online"/"offline"
+    private static Map<String, String> userStatuses = new HashMap<>(); 
+    private static String FILE_PATH = "history.txt";
 
     public static void main(String[] args) {
         try (DatagramSocket socket = new DatagramSocket(1234)) {
@@ -47,9 +48,22 @@ public class Server {
                         handleBroadcast(socket, sender, message);
                         break;
                 }
+                handleSaveToFile(message, sender);
             }
         } catch (IOException ex) {
             ex.printStackTrace();
+        }
+    }
+
+    private static void handleSaveToFile(String message, InetSocketAddress sender){
+        if (message.contains("typing")) return;
+        try {
+            BufferedWriter file = new BufferedWriter(new FileWriter(FILE_PATH,true));
+            file.write(sender+":"+message);
+            file.newLine();
+            file.close();
+        } catch (Exception e) {
+            System.out.println("Error writing to file : " + FILE_PATH);
         }
     }
 
